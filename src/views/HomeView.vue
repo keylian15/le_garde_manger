@@ -9,6 +9,9 @@ const loading = ref(false)
 const error = ref('')
 
 const authHeader = computed(() => {
+  if (authStore.token) {
+    return 'Bearer ' + authStore.token
+  }
   if (authStore.isAuthenticated && authStore.email && authStore.password) {
     return 'Basic ' + btoa(`${authStore.email}:${authStore.password}`)
   }
@@ -106,7 +109,7 @@ input[type="text"] {
 }
 .state { color: #666; }
 .state.error { color: #b00020; }
-.list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+.list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; max-height: 60vh; overflow-y: auto; }
 .item { padding: 0.6rem 0.8rem; border: 1px solid #eee; border-radius: 8px; background: #fff; }
 .empty { color: #666; padding: 0.6rem 0.8rem; }
 .name { font-weight: 600; }
