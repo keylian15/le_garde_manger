@@ -7,7 +7,7 @@ const email = ref("");
 const isLoading = ref(false);
 const error = ref("");
 const success = ref("");
-
+// Fonction pour gérer la soumission du formulaire
 const handleForgotPassword = async () => {
     error.value = "";
     success.value = "";
