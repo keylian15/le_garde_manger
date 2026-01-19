@@ -13,8 +13,11 @@ const handleLogin = async () => {
     error.value = "";
     isLoading.value = true;
     try {
-        const qs = new URLSearchParams({ u: email.value, p: password.value }).toString();
-        const res = await fetch(`/api/auth/login?${qs}`, { method: 'POST' });
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.value, password: password.value })
+        });
         if (!res.ok) {
             const j = await res.json().catch(() => ({}));
             throw new Error(j.error || `HTTP ${res.status}`);
@@ -22,10 +25,9 @@ const handleLogin = async () => {
         const data = await res.json();
         if (!data.ok) throw new Error('Identifiants invalides');
         authStore.login(email.value, password.value);
-        if (data.token) authStore.setToken(data.token);
         router.push('/');
     } catch (e) {
-        error.value = e.message || 'Connexion échouée';
+        error.value = e.message || "Connexion échouée";
     } finally {
         isLoading.value = false;
     }
@@ -81,12 +83,16 @@ const handleLogin = async () => {
                         <div v-else class="spinner"></div>
                     </button>
                 </form>
-                <p v-if="error" style="color:#b00020; margin-top:8px;">{{ error }}</p>
+                <p v-if="error" style="color: #b00020; margin-top: 8px">
+                    {{ error }}
+                </p>
 
                 <div class="card-footer">
                     <p>
                         Nouveau ici ?
-                        <a href="#" class="signup-link">Créer un compte</a>
+                        <router-link to="/register" class="signup-link"
+                            >Créer un compte</router-link
+                        >
                     </p>
                 </div>
             </div>

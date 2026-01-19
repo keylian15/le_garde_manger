@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router";
 import HomeView from "../views/HomeView.vue";
-import LoginView from "../views/Login.vue"; // Vérifie bien le chemin vers ton Login.vue
-import { authStore } from "@/stores/auth"; // On importe l'état de connexion
+import LoginView from "../views/Login.vue";
+import RegisterView from "../views/Register.vue";
+import { authStore } from "@/stores/auth";
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -11,34 +12,33 @@ const router = createRouter({
             name: "login",
             component: LoginView,
         },
+        { path: "/register", name: "register", component: RegisterView },
         {
             path: "/",
             name: "home",
             component: HomeView,
-            meta: { requiresAuth: true }, // Ajout du verrou
+            meta: { requiresAuth: true },
         },
         {
             path: "/about",
             name: "about",
             component: () => import("../views/AboutView.vue"),
-            meta: { requiresAuth: true }, // Ajout du verrou
+            meta: { requiresAuth: true },
         },
     ],
 });
 
-// La garde de navigation : elle s'exécute avant chaque changement de page
 router.beforeEach((to, from, next) => {
     const isLogged = authStore.isAuthenticated;
 
-    // Si la route demande une authentification et que l'utilisateur n'est pas loggé
     if (to.meta.requiresAuth && !isLogged) {
         next({ name: "login" });
     }
-    // Si l'utilisateur est déjà loggé et essaie d'aller sur le Login
-    else if (to.name === "login" && isLogged) {
+    // Permettre l'accès à Login et Register si non loggé
+    else if ((to.name === "login" || to.name === "register") && isLogged) {
         next({ name: "home" });
     } else {
-        next(); // Laisse passer
+        next();
     }
 });
 
