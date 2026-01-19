@@ -1,3 +1,4 @@
+
 CREATE USER 'admin1'@'localhost' IDENTIFIED BY '1234';
 GRANT ALL PRIVILEGES ON garde_manger.* TO 'admin1'@'localhost';
 FLUSH PRIVILEGES;
@@ -21,7 +22,6 @@ CREATE TABLE foods (
 INSERT INTO users (email, password)
 VALUES ('admin@example.com', SHA2('1234', 256));
 
--- ' OR 1=1 #
 
 INSERT INTO foods (name, description, calories, type) VALUES
 -- 🥦 ALIMENTS
