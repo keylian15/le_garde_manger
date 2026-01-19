@@ -24,7 +24,7 @@ VALUES ('admin@example.com', '1234');
 
 
 INSERT INTO foods (name, description, calories, type) VALUES
--- 🥦 ALIMENTS
+-- 🥦 ALIMENTS DE LA PLANETE
 ('Pomme', 'Fruit frais et croquant', 52, 'aliment'),
 ('Banane', 'Fruit riche en potassium', 89, 'aliment'),
 ('Carotte', 'Légume croquant riche en vitamine A', 41, 'aliment'),
