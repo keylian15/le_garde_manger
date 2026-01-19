@@ -62,7 +62,7 @@ const handleLogin = async () => {
                     <div class="input-container">
                         <div class="label-row">
                             <label>Mot de passe</label>
-                            <a href="#" class="forgot-link">Oublié ?</a>
+                            <router-link to="/forgot-password" class="forgot-link">Oublié ?</router-link>
                         </div>
                         <input
                             type="password"

@@ -4,6 +4,8 @@ import { healthCheck, pool } from "./db.js";
 import swaggerUi from "swagger-ui-express";
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
+import { sendPasswordResetEmail } from './email.js'
 const app = express();
 app.use(express.json());
 
@@ -263,6 +265,135 @@ app.post('/api/auth/login', async (req, res) => {
       ok: true,
       user: { id: user.id, email: user.email },
       token
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'internal_server_error' })
+  }
+})
+
+// Route pour demander la réinitialisation du mot de passe
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email requis' })
+    }
+
+    // Vérifier si l'utilisateur existe
+    const [users] = await pool.query(
+      'SELECT id, email FROM users WHERE email = ?',
+      [email]
+    )
+
+    // Pour des raisons de sécurité, on renvoie toujours un message de succès
+    // même si l'email n'existe pas (pour ne pas révéler quels emails sont enregistrés)
+    if (users.length === 0) {
+      return res.json({ 
+        ok: true, 
+        message: 'Si cet email existe dans notre système, un lien de réinitialisation a été envoyé.' 
+      })
+    }
+
+    const user = users[0]
+
+    // Générer un token de réinitialisation sécurisé
+    const resetToken = crypto.randomBytes(32).toString('hex')
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex')
+    
+    // Le token expire dans 1 heure
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+
+    // Supprimer les anciens tokens de réinitialisation pour cet utilisateur
+    await pool.query(
+      'DELETE FROM password_reset_tokens WHERE user_id = ?',
+      [user.id]
+    )
+
+    // Insérer le nouveau token
+    await pool.query(
+      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)',
+      [user.id, hashedToken, expiresAt]
+    )
+
+    // Créer l'URL de réinitialisation pointant vers le frontend
+    // Utilise l'origine de la requête pour supporter n'importe quel port
+    const frontendOrigin = req.headers.origin || req.headers.referer?.replace(/\/$/, '') || 'http://localhost:5173'
+    const resetUrl = `${frontendOrigin}/reset-password/${resetToken}`
+
+    // Envoyer l'email
+    const emailResult = await sendPasswordResetEmail(user.email, resetUrl)
+
+    if (!emailResult.success) {
+      console.error('Erreur lors de l\'envoi de l\'email:', emailResult.error)
+      // On ne révèle pas l'erreur à l'utilisateur pour des raisons de sécurité
+    }
+
+    res.json({ 
+      ok: true, 
+      message: 'Si cet email existe dans notre système, un lien de réinitialisation a été envoyé.' 
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'internal_server_error' })
+  }
+})
+
+// Route pour réinitialiser le mot de passe avec le token
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token et nouveau mot de passe requis' })
+    }
+
+    // Valider le mot de passe (minimum 6 caractères)
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' })
+    }
+
+    // Hasher le token reçu pour le comparer à celui en base
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex')
+
+    // Récupérer le token de réinitialisation
+    const [tokens] = await pool.query(
+      `SELECT rt.id, rt.user_id, rt.expires_at, u.email 
+       FROM password_reset_tokens rt
+       JOIN users u ON rt.user_id = u.id
+       WHERE rt.token = ?`,
+      [hashedToken]
+    )
+
+    if (tokens.length === 0) {
+      return res.status(400).json({ error: 'Token invalide ou expiré' })
+    }
+
+    const tokenData = tokens[0]
+
+    // Vérifier si le token n'est pas expiré
+    if (new Date() > new Date(tokenData.expires_at)) {
+      // Supprimer le token expiré
+      await pool.query('DELETE FROM password_reset_tokens WHERE id = ?', [tokenData.id])
+      return res.status(400).json({ error: 'Token expiré' })
+    }
+
+    // Hasher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+    // Mettre à jour le mot de passe de l'utilisateur
+    await pool.query(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [hashedPassword, tokenData.user_id]
+    )
+
+    // Supprimer le token utilisé
+    await pool.query('DELETE FROM password_reset_tokens WHERE id = ?', [tokenData.id])
+
+    res.json({ 
+      ok: true, 
+      message: 'Mot de passe réinitialisé avec succès' 
     })
   } catch (e) {
     console.error(e)

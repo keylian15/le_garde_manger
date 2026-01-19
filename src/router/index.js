@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from "vue-router";
 import HomeView from "../views/HomeView.vue";
 import LoginView from "../views/Login.vue";
 import RegisterView from "../views/Register.vue";
+import ForgotPasswordView from "../views/ForgotPassword.vue";
+import ResetPasswordView from "../views/ResetPassword.vue";
 import { authStore } from "@/stores/auth";
 
 const router = createRouter({
@@ -13,6 +15,16 @@ const router = createRouter({
             component: LoginView,
         },
         { path: "/register", name: "register", component: RegisterView },
+                {
+                    path: "/forgot-password",
+                    name: "forgot-password",
+                    component: ForgotPasswordView,
+                },
+                {
+                    path: "/reset-password/:token",
+                    name: "reset-password",
+                    component: ResetPasswordView,
+                },
         {
             path: "/",
             name: "home",
@@ -34,8 +46,8 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth && !isLogged) {
         next({ name: "login" });
     }
-    // Permettre l'accès à Login et Register si non loggé
-    else if ((to.name === "login" || to.name === "register") && isLogged) {
+    // Permettre l'accès à Login, Register et pages de réinitialisation si non loggé
+    else if ((to.name === "login" || to.name === "register" || to.name === "forgot-password" || to.name === "reset-password") && isLogged) {
         next({ name: "home" });
     } else {
         next();
