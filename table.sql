@@ -39,7 +39,7 @@ INSERT INTO foods (name, description, calories, type) VALUES
 ('Lasagnes', 'Lasagnes à la viande et fromage', 650, 'plat'),
 ('Salade composée', 'Salade avec légumes variés', 250, 'plat'),
 
--- 🍰 DESSERTS
+-- 🍰 DESSERTS TRES BON
 ('Tarte aux pommes', 'Dessert sucré aux pommes', 320, 'dessert'),
 ('Brownie', 'Gâteau au chocolat dense', 450, 'dessert'),
 ('Crème brûlée', 'Crème vanillée caramélisée', 300, 'dessert'),
