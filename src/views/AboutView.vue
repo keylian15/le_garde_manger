@@ -33,26 +33,8 @@ onMounted(async () => {
       <h2>Nos chers Utilisateurs</h2>
       <div v-if="loading" class="state">Chargement…</div>
       <div v-else-if="error" class="state error">{{ error }}</div>
-      <table v-else class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Email</th>
-            <th>Mot de passe</th>
-            <th>Créé le</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="u in users" :key="u.id">
-            <td>{{ u.id }}</td>
-            <td>{{ u.email }}</td>
-            <td class="mono">{{ u.password }}</td>
-            <td>{{ u.created_at }}</td>
-          </tr>
-          <tr v-if="users.length === 0">
-            <td colspan="4" class="empty">Aucun utilisateur</td>
-          </tr>
-        </tbody>
+      <table v-else >
+        Merci a vous ! 
       </table>
     </section>
   </main>
