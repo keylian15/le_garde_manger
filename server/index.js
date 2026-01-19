@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { healthCheck, pool } from "./db.js";
 import swaggerUi from "swagger-ui-express";
-
+import bcrypt from 'bcrypt'
 const app = express();
 app.use(express.json());
 
@@ -171,41 +171,80 @@ app.get('/api/debug/users', async (req, res) => {
 // Route d'inscription
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Champs requis' });
+    const { email, password } = req.body
 
-    // Vérifier si l'utilisateur existe déjà
-    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length > 0) {
-      return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Champs requis' })
     }
 
-    // Insertion en clair (pédagogique, à ne pas faire en production)
+    // Vérifier si l'utilisateur existe déjà
+    const [existing] = await pool.query(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    )
+
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Cet email est déjà utilisé' })
+    }
+
+    // Hash du mot de passe
+    const hashedPassword = await bcrypt.hash(password, 10)
+
     await pool.query(
       'INSERT INTO users (email, password) VALUES (?, ?)',
-      [email, password]
-    );
+      [email, hashedPassword]
+    )
 
-    res.status(201).json({ ok: true, message: 'Utilisateur créé' });
+    res.status(201).json({ ok: true, message: 'Utilisateur créé' })
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'internal_server_error' })
   }
-});
+})
 
 // Simple login endpoint (intentionally vulnerable for exercise)
-app.post("/api/auth/login", async (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   try {
-    const u = (req.query.u || "").toString();
-    const p = (req.query.p || "").toString();
-    const sql = `SELECT id, email FROM users WHERE email = '${u}' AND password = '${p}' LIMIT 1`;
-    const [rows] = await pool.query(sql);
-    const ok = rows && rows.length > 0;
-    const token = ok ? `uid:${rows[0].id}` : undefined;
-    res.json({ ok, rowsCount: rows ? rows.length : 0, sql, user: ok ? rows[0] : null, token });
+    // L'email = u et le password = p 
+    const { u, p } = req.query
+
+    if (!u || !p) {
+      return res.status(400).json({ error: 'Champs requis' })
+    }
+
+    // Requête préparée (anti SQL injection)
+    const [rows] = await pool.query(
+      'SELECT id, email, password FROM users WHERE email = ? LIMIT 1',
+      [u]
+    )
+
+    
+
+    if (!rows || rows.length === 0) {
+      return res.status(401).json({ error: 'Identifiants invalides' })
+    }
+
+    const user = rows[0]
+    
+    // Vérification du mot de passe
+    const isValid = await bcrypt.compare(p, user.password)
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Identifiants invalides' })
+    }
+
+    // Token pédagogique (pas prod)
+    const token = `uid:${user.id}`
+
+    res.json({
+      ok: true,
+      user: { id: user.id, email: user.email },
+      token
+    })
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error(e)
+    res.status(500).json({ error: 'internal_server_error' })
   }
-});
+})
 
 // Foods listing with optional text filter `q` on name/description
 app.get("/api/foods", basicAuth, async (req, res) => {
