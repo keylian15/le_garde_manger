@@ -3,8 +3,12 @@ import express from "express";
 import { healthCheck, pool } from "./db.js";
 import swaggerUi from "swagger-ui-express";
 import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
 const app = express();
 app.use(express.json());
+
+// Clé secrète pour signer les JWT (à mettre dans .env en production)
+const JWT_SECRET = process.env.JWT_SECRET || 'secret-key-changez-moi-en-production'
 
 // --- Swagger/OpenAPI docs (educational) ---
 const openapi = {
@@ -110,15 +114,26 @@ app.get("/api/openapi.json", (req, res) => res.json(openapi));
 async function basicAuth(req, res, next) {
   try {
     const h = req.headers['authorization'] || ''
-    // Accept a very simple Bearer token form: "Bearer uid:<id>" to simulate a session for the exercise
+    // Valider le Bearer token avec JWT
     if (h.startsWith('Bearer ')) {
       const token = h.slice(7)
-      const m = /^uid:(\d+)$/.exec(token)
-      if (m) {
-        req.user = { id: Number(m[1]) }
+      try {
+        // Vérifier et décoder le JWT
+        const decoded = jwt.verify(token, JWT_SECRET)
+        
+        // Vérifier que le payload contient un userId
+        if (!decoded.userId) {
+          return res.status(401).json({ error: 'invalid_token' })
+        }
+        
+        req.user = { id: decoded.userId }
         return next()
+      } catch (e) {
+        if (e.name === 'TokenExpiredError') {
+          return res.status(401).json({ error: 'token_expired' })
+        }
+        return res.status(401).json({ error: 'invalid_token' })
       }
-      return res.status(401).json({ error: 'invalid_token' })
     }
     if (!h.startsWith('Basic ')) return res.status(401).json({ error: 'auth_required' })
     const decoded = Buffer.from(h.slice(6), 'base64').toString('utf8')
@@ -128,11 +143,16 @@ async function basicAuth(req, res, next) {
     const password = decoded.slice(idx + 1)
     if (!email || !password) return res.status(401).json({ error: 'invalid_credentials' })
     const [rows] = await pool.query(
-      'SELECT id, email FROM users WHERE email = ? AND password = ? LIMIT 1',
-      [email, password]
+      'SELECT id, email, password FROM users WHERE email = ? LIMIT 1',
+      [email]
     )
     if (!rows || rows.length === 0) return res.status(401).json({ error: 'invalid_credentials' })
-    req.user = rows[0]
+    
+    // Vérification sécurisée du mot de passe avec bcrypt
+    const isValid = await bcrypt.compare(password, rows[0].password)
+    if (!isValid) return res.status(401).json({ error: 'invalid_credentials' })
+    
+    req.user = { id: rows[0].id, email: rows[0].email }
     return next()
   } catch (e) {
     return res.status(500).json({ error: e.message })
@@ -232,8 +252,12 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Identifiants invalides' })
     }
 
-    // Token pédagogique (pas prod)
-    const token = `uid:${user.id}`
+    // Générer un JWT signé
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    )
 
     res.json({
       ok: true,
